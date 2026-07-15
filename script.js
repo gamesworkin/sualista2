@@ -654,12 +654,27 @@ function showAdmin() {
  * ========================================================= */
 let currentAdminView = "dashboard";
 function renderCurrentAdminView() {
+  // Evita apagar o input enquanto o admin digita: se o foco estiver dentro do
+  // viewContainer em um campo de texto, re-renderiza depois que ele perder foco.
+  const active = document.activeElement;
+  const container = $("#viewContainer");
+  if (container && active && container.contains(active) &&
+      (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.tagName === "SELECT")) {
+    if (!renderCurrentAdminView._pending) {
+      renderCurrentAdminView._pending = true;
+      active.addEventListener("blur", () => {
+        renderCurrentAdminView._pending = false;
+        renderCurrentAdminView();
+      }, { once: true });
+    }
+    return;
+  }
   $("#viewTitle").textContent = ({
     dashboard: "Dashboard", orders: "Pedidos", games: "Jogos",
     categories: "Categorias", subcategories: "Subcategorias",
     pendrives: "Pendrives", settings: "Configurações",
   })[currentAdminView];
-  const c = $("#viewContainer");
+  const c = container;
   const fn = {
     dashboard: viewDashboard, orders: viewOrders, games: viewGames,
     categories: viewCategories, subcategories: viewSubcategories,
@@ -774,13 +789,14 @@ function viewGames() {
 
 function viewSimpleList(title, key, refPath) {
   const items = [...state[key]].sort((a, b) => (a.order || 0) - (b.order || 0));
+  const inputId = `newSimpleName_${refPath}`;
   return `
     <div class="panel">
       <div class="panel-head">
         <h2>${title}</h2>
         <div style="display:flex;gap:8px;">
-          <input id="newSimpleName" placeholder="Nome"/>
-          <button class="btn btn-primary" data-add-simple="${refPath}"><i class="fa-solid fa-plus"></i></button>
+          <input id="${inputId}" placeholder="Digite o nome e pressione Enter" data-simple-input="${refPath}" autocomplete="off"/>
+          <button class="btn btn-primary" data-add-simple="${refPath}"><i class="fa-solid fa-plus"></i> Adicionar</button>
         </div>
       </div>
       <div class="table-wrap">
@@ -792,8 +808,8 @@ function viewSimpleList(title, key, refPath) {
                 <td><input type="number" data-order-simple="${refPath}|${i.id}" value="${i.order || 0}" style="width:70px;"/></td>
                 <td><input data-name-simple="${refPath}|${i.id}" value="${esc(i.name)}"/></td>
                 <td class="row-btns">
-                  <button class="icon-btn" data-save-simple="${refPath}|${i.id}"><i class="fa-solid fa-check"></i></button>
-                  <button class="icon-btn danger" data-del-simple="${refPath}|${i.id}"><i class="fa-solid fa-trash"></i></button>
+                  <button class="icon-btn" data-save-simple="${refPath}|${i.id}" title="Salvar"><i class="fa-solid fa-check"></i></button>
+                  <button class="icon-btn danger" data-del-simple="${refPath}|${i.id}" title="Excluir"><i class="fa-solid fa-trash"></i></button>
                 </td>
               </tr>
             `).join("") || `<tr><td colspan="3" style="text-align:center;color:var(--text-muted);padding:20px;">Vazio</td></tr>`}
@@ -920,26 +936,52 @@ function wireAdminActions() {
 
   // === SIMPLE LISTS (categories/subcategories) ===
   const addS = c.querySelector("[data-add-simple]");
-  if (addS) addS.onclick = async () => {
-    const name = c.querySelector("#newSimpleName").value.trim();
-    if (!name) return;
+  const addSimpleHandler = async () => {
     const path = addS.dataset.addSimple;
-    const id = uid();
-    await db.ref(`${path}/${id}`).set({ id, name, order: (state[path]?.length || 0) + 1 });
-    c.querySelector("#newSimpleName").value = "";
-    toast("Adicionado", "success");
+    const input = c.querySelector(`[data-simple-input="${path}"]`);
+    const name = (input?.value || "").trim();
+    if (!name) { toast("Digite um nome antes de adicionar", "error"); input?.focus(); return; }
+    try {
+      const id = uid();
+      const order = (Array.isArray(state[path]) ? state[path].length : 0) + 1;
+      await db.ref(`${path}/${id}`).set({ id, name, order });
+      if (input) input.value = "";
+      toast(`${path === "subcategories" ? "Subcategoria" : "Categoria"} adicionada`, "success");
+    } catch (err) {
+      console.error("Erro ao adicionar em", path, err);
+      toast("Erro ao salvar: " + (err?.message || err), "error");
+    }
   };
+  if (addS) {
+    addS.onclick = addSimpleHandler;
+    const inp = c.querySelector(`[data-simple-input="${addS.dataset.addSimple}"]`);
+    if (inp) inp.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") { e.preventDefault(); addSimpleHandler(); }
+    });
+  }
   c.querySelectorAll("[data-save-simple]").forEach(b => b.onclick = async () => {
     const [path, id] = b.dataset.saveSimple.split("|");
     const name = c.querySelector(`[data-name-simple="${path}|${id}"]`).value.trim();
     const order = Number(c.querySelector(`[data-order-simple="${path}|${id}"]`).value) || 0;
-    await db.ref(`${path}/${id}`).update({ name, order });
-    toast("Salvo", "success");
+    if (!name) { toast("Nome não pode ficar vazio", "error"); return; }
+    try {
+      await db.ref(`${path}/${id}`).update({ name, order });
+      toast("Salvo", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao salvar: " + (err?.message || err), "error");
+    }
   });
   c.querySelectorAll("[data-del-simple]").forEach(b => b.onclick = async () => {
     const [path, id] = b.dataset.delSimple.split("|");
     if (!confirm("Excluir?")) return;
-    await db.ref(`${path}/${id}`).remove();
+    try {
+      await db.ref(`${path}/${id}`).remove();
+      toast("Excluído", "success");
+    } catch (err) {
+      console.error(err);
+      toast("Erro ao excluir: " + (err?.message || err), "error");
+    }
   });
 
   // === PENDRIVES ===
