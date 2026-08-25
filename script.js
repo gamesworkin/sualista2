@@ -1,5 +1,5 @@
 /* =========================================================
- * CATÁLOGO RETRO - script.js
+ * SUA LISTA | WORKIN'STORE - script.js
  * Firebase Authentication + Realtime Database
  * Estrutura modular via IIFE / módulos internos
  * ========================================================= */
@@ -46,8 +46,9 @@ const state = {
   settings: {},
   cart: [],
   selectedPendriveId: null,
-  filters: { search: "", category: "", subcategory: "", sort: "alpha" },
+  filters: { search: "", category: "", code: "", subcategory: "", sort: "alpha" },
   currentPage: 1,
+  viewMode: (typeof localStorage !== "undefined" && localStorage.getItem("catalogViewMode")) || "grid",
   isAdmin: false,
 };
 
@@ -115,17 +116,17 @@ async function ensureDefaults() {
   const sSnap = await db.ref("settings").once("value");
   if (!sSnap.exists()) {
     await db.ref("settings").set({
-      siteTitle: "Catálogo Retro",
-      siteName: "Catálogo Retro",
+      siteTitle: "Sua Lista | Workin'Store",
+      siteName: "Sua Lista | Workin'Store",
       logoUrl: "",
       faviconUrl: "",
       primaryColor: "#00b3ff",
       secondaryColor: "#8a2be2",
       backgroundUrl: "",
-      footerText: "© Catálogo Retro - Todos os direitos reservados",
+      footerText: "© Sua Lista | Workin'Store - Todos os direitos reservados",
       whatsappNumber: "5588988470190",
       whatsappMessage: "Olá! Segue minha lista de jogos.",
-      jpgMessage: "Obrigado por escolher o Catálogo Retro!",
+      jpgMessage: "Obrigado por escolher a Workin'Store!",
     });
   }
 }
@@ -196,18 +197,45 @@ function applySettings() {
  * CATÁLOGO PÚBLICO
  * ========================================================= */
 
-/** Constrói select de pendrives */
+/** Constrói select + botões de pendrives (botões usados no mobile) */
 function buildPendriveSelect() {
   const sel = $("#pendriveSelect");
+  const btnWrap = $("#pendriveButtons");
   const list = [...state.pendrives].sort((a, b) => (a.order || 0) - (b.order || 0));
+
+  // <select> (desktop)
   sel.innerHTML = list.map((p) =>
     `<option value="${p.id}">${esc(p.name)} — ${fmt(p.capacity)} GB</option>`
   ).join("");
+
   if (list.length && !state.selectedPendriveId) {
     state.selectedPendriveId = list[0].id;
-    sel.value = list[0].id;
-  } else if (state.selectedPendriveId) {
-    sel.value = state.selectedPendriveId;
+  }
+  if (state.selectedPendriveId) sel.value = state.selectedPendriveId;
+
+  // Botões (mobile)
+  if (btnWrap) {
+    btnWrap.innerHTML = list.map((p) => `
+      <button type="button" data-pendrive-btn="${p.id}"
+        class="${p.id === state.selectedPendriveId ? "active" : ""}"
+        aria-pressed="${p.id === state.selectedPendriveId}">
+        ${esc(p.name)}
+      </button>
+    `).join("");
+    btnWrap.querySelectorAll("button[data-pendrive-btn]").forEach((b) => {
+      b.addEventListener("click", () => {
+        state.selectedPendriveId = b.dataset.pendriveBtn;
+        sel.value = state.selectedPendriveId;
+        // Atualiza estados visuais dos botões
+        btnWrap.querySelectorAll("button[data-pendrive-btn]").forEach((x) => {
+          const on = x.dataset.pendriveBtn === state.selectedPendriveId;
+          x.classList.toggle("active", on);
+          x.setAttribute("aria-pressed", on ? "true" : "false");
+        });
+        updatePendriveBar();
+        renderCart();
+      });
+    });
   }
 }
 
@@ -235,6 +263,7 @@ function getFilteredGames() {
     const q = search.toLowerCase();
     arr = arr.filter((g) =>
       (g.name || "").toLowerCase().includes(q) ||
+      (g.code || "").toLowerCase().includes(q) ||
       (g.category || "").toLowerCase().includes(q) ||
       (g.subcategory || "").toLowerCase().includes(q)
     );
@@ -257,8 +286,15 @@ function renderCatalog() {
 
   $("#emptyState").classList.toggle("hidden", total > 0);
 
+  // Aplica classe do modo de exibição (grid | list)
+  wrap.classList.toggle("list", state.viewMode === "list");
+
   wrap.innerHTML = items.map((g) => {
     const inList = state.cart.some((c) => c.id === g.id);
+    // Botão dinâmico: adicionar (azul) OU remover (vermelho) quando já está na lista
+    const actionBtn = inList
+      ? `<button class="card-action remove" title="Remover da lista" data-remove="${g.id}" aria-label="Remover da lista"><i class="fa-solid fa-trash"></i></button>`
+      : `<button class="card-action add"    title="Adicionar à lista" data-add="${g.id}"    aria-label="Adicionar à lista"><i class="fa-solid fa-plus"></i></button>`;
     return `
       <div class="game-card ${inList ? "in-list" : ""}" data-id="${g.id}">
         <div class="thumb"><img loading="lazy" src="${esc(g.image || "")}" alt="${esc(g.name)}" onerror="this.style.opacity=.15"/></div>
@@ -269,7 +305,7 @@ function renderCatalog() {
             <span>${fmt(g.size)} GB</span>
           </div>
         </div>
-        <button class="add" title="Adicionar" data-add="${g.id}"><i class="fa-solid fa-plus"></i></button>
+        ${actionBtn}
       </div>
     `;
   }).join("");
@@ -363,6 +399,18 @@ function updatePendriveBar() {
   bar.style.background = color;
 
   $("#cartBadge").textContent = state.cart.length;
+  updateFloatFinish();
+}
+
+/** Mostra/esconde o botão flutuante "Finalizar lista e enviar" */
+function updateFloatFinish() {
+  const btn = $("#floatFinishBtn");
+  if (!btn) return;
+  const count = state.cart.length;
+  btn.classList.toggle("hidden", count === 0);
+  document.body.classList.toggle("has-float-finish", count > 0);
+  const c = $("#floatFinishCount");
+  if (c) c.textContent = count;
 }
 
 /** Renderiza carrinho no modal */
@@ -470,7 +518,7 @@ async function handleCheckout(e) {
 function buildWhatsappUrl(order) {
   const number = (state.settings.whatsappNumber || "5588988470190").replace(/\D/g, "");
   const lines = [
-    `*Novo pedido - ${state.settings.siteTitle || "Catálogo Retro"}*`,
+    `*Novo pedido - ${state.settings.siteTitle || "Sua Lista | Workin'Store"}*`,
     `Nome: ${order.firstName} ${order.lastName}`,
     `Cidade: ${order.city}/${order.uf}`,
     `WhatsApp: ${order.whatsapp}`,
@@ -529,7 +577,7 @@ async function buildOrderImage(order) {
   // Título
   ctx.fillStyle = "#ffffff";
   ctx.font = "bold 30px Orbitron, Arial";
-  ctx.fillText(state.settings.siteTitle || "Catálogo Retro", infoX, 60);
+  ctx.fillText(state.settings.siteTitle || "Sua Lista | Workin'Store", infoX, 60);
 
   ctx.fillStyle = "#a4a9c9";
   ctx.font = "16px Rajdhani, Arial";
@@ -639,12 +687,15 @@ function bindLogin() {
 function showPublic() {
   state.isAdmin = false;
   $("#publicApp").classList.remove("hidden");
-  $("#adminApp").classList.add("hidden");
+  closeModal("adminModal");
+  document.body.classList.remove("modal-open");
 }
 function showAdmin() {
   state.isAdmin = true;
-  $("#adminApp").classList.remove("hidden");
-  $("#publicApp").classList.add("hidden");
+  // A área administrativa agora é um modal sobreposto ao site público.
+  $("#publicApp").classList.remove("hidden");
+  openModal("adminModal");
+  document.body.classList.add("modal-open");
   listenOrders();
   renderCurrentAdminView();
 }
@@ -1067,10 +1118,28 @@ function openGameForm(editId) {
 function bindPublicUI() {
   // Delegação: cards e botões
   $("#gamesGrid").addEventListener("click", (e) => {
+    const rm = e.target.closest("[data-remove]");
+    if (rm) { e.stopPropagation(); removeFromCart(rm.dataset.remove); return; }
     const add = e.target.closest("[data-add]");
     if (add) { e.stopPropagation(); addToCart(add.dataset.add); return; }
     const card = e.target.closest(".game-card");
     if (card) openGameDetail(card.dataset.id);
+  });
+
+  // Alternância entre modo Grade e Lista
+  document.querySelectorAll("[data-view-mode]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const mode = btn.dataset.viewMode;
+      if (mode === state.viewMode) return;
+      state.viewMode = mode;
+      try { localStorage.setItem("catalogViewMode", mode); } catch {}
+      document.querySelectorAll("[data-view-mode]").forEach((b) => {
+        const active = b.dataset.viewMode === mode;
+        b.classList.toggle("active", active);
+        b.setAttribute("aria-pressed", String(active));
+      });
+      renderCatalog();
+    });
   });
 
   $("#pagination").addEventListener("click", (e) => {
@@ -1091,10 +1160,22 @@ function bindPublicUI() {
   $("#openCartBtn").addEventListener("click", () => { renderCart(); openModal("cartModal"); });
   $("#adminLoginBtn").addEventListener("click", () => openModal("loginModal"));
 
+  // Botão flutuante: abre a lista já pronta para finalizar
+  const floatBtn = $("#floatFinishBtn");
+  if (floatBtn) floatBtn.addEventListener("click", () => {
+    renderCart();
+    openModal("cartModal");
+    const form = $("#checkoutForm");
+    if (form) setTimeout(() => form.scrollIntoView({ behavior: "smooth", block: "nearest" }), 120);
+  });
+
   // Fechar modais
   document.body.addEventListener("click", (e) => {
     const close = e.target.closest("[data-close]");
-    if (close) closeModal(close.dataset.close);
+    if (close) {
+      closeModal(close.dataset.close);
+      if (close.dataset.close === "adminModal") document.body.classList.remove("modal-open");
+    }
   });
 
   // Carrinho: remover / validar / submit
@@ -1105,6 +1186,23 @@ function bindPublicUI() {
   $("#checkoutForm").addEventListener("input", validateCheckout);
   $("#checkoutForm").addEventListener("submit", handleCheckout);
 
+// Efeito de pulsação suave no botão do WhatsApp
+const waButton = document.querySelector('.whatsapp-float');
+if (waButton) {
+    waButton.style.animation = "pulse 2s infinite";
+    
+    // Injetando o keyframe da animação via JS para não precisar mexer no CSS
+    const style = document.createElement('style');
+    style.innerHTML = `
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0.7); }
+            70% { box-shadow: 0 0 0 15px rgba(37, 211, 102, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+        }
+    `;
+    document.head.appendChild(style);
+}
+  
   // Admin nav
   document.body.addEventListener("click", (e) => {
     const nav = e.target.closest(".nav-item[data-view]");
@@ -1113,11 +1211,11 @@ function bindPublicUI() {
       $$(".nav-item").forEach(n => n.classList.remove("active"));
       nav.classList.add("active");
       renderCurrentAdminView();
-      $(".admin-sidebar").classList.remove("open");
+      const tabs = $(".admin-tabs");
+      if (tabs) nav.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
     }
   });
   $("#logoutBtn").addEventListener("click", () => auth.signOut());
-  $("#mobileMenuBtn").addEventListener("click", () => $(".admin-sidebar").classList.toggle("open"));
 }
 
 /* =========================================================

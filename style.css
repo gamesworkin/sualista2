@@ -1,5 +1,5 @@
 /* =========================================================
-   CATÁLOGO RETRO — Style
+   Sua Lista | Workin'Store — Style
    Tema Gamer Premium (PlayStation-inspired)
    Glassmorphism • Neon azul/roxo • Preto
    ========================================================= */
@@ -31,11 +31,16 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* HTML e BODY: garantem cor de fundo escura em qualquer altura de rolagem,
+   evitando "margens brancas" quando o conteúdo é maior que a viewport
+   (especialmente no painel admin em celulares). */
+html { background-color: var(--bg-1); }
 html, body {
   min-height: 100%;
   font-family: var(--font-body);
   color: var(--text);
-  background:
+  background-color: var(--bg-1);
+  background-image:
     radial-gradient(1200px 800px at 10% -10%, rgba(0, 179, 255, 0.18), transparent 60%),
     radial-gradient(1000px 800px at 100% 0%, rgba(138, 43, 226, 0.20), transparent 60%),
     radial-gradient(900px 700px at 50% 120%, rgba(255, 43, 214, 0.10), transparent 60%),
@@ -43,6 +48,7 @@ html, body {
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
 }
+body { min-height: 100dvh; }
 
 img { max-width: 100%; display: block; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
@@ -142,8 +148,28 @@ input, select, textarea { font-family: inherit; }
   padding: 16px 20px;
   display: grid; grid-template-columns: 1fr 2fr; gap: 20px; align-items: center;
 }
-.pendrive-controls { display: flex; align-items: center; gap: 10px; }
+.pendrive-controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .pendrive-controls label { font-weight: 700; color: var(--text-muted); }
+
+/* Botões de capacidade (visíveis apenas no mobile) */
+.pendrive-buttons { display: none; gap: 8px; flex-wrap: wrap; }
+.pendrive-buttons button {
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: var(--surface-strong);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13px;
+  transition: transform .15s ease, box-shadow .15s ease, background .2s ease;
+}
+.pendrive-buttons button:hover { transform: translateY(-1px); }
+.pendrive-buttons button.active {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff;
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(124, 58, 237, .5);
+}
 .progress-track {
   height: 14px; width: 100%; border-radius: 999px;
   background: rgba(255,255,255,.06);
@@ -221,29 +247,112 @@ input, select, textarea { font-family: inherit; }
 .game-card .info { padding: 10px 12px; }
 .game-card .info h3 { font-size: 15px; line-height: 1.2; margin-bottom: 4px; }
 .game-card .meta { color: var(--text-muted); font-size: 12px; display: flex; justify-content: space-between; }
-.game-card .add {
+
+/* Botão de ação flutuante no card (adicionar OU remover) */
+.game-card .card-action {
   position: absolute; top: 8px; right: 8px;
   width: 36px; height: 36px; border-radius: 50%;
   display: grid; place-items: center;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  color: #fff; box-shadow: var(--shadow-neon-blue);
+  color: #fff;
   opacity: 0; transform: translateY(-6px);
-  transition: opacity var(--transition), transform var(--transition);
+  transition: opacity var(--transition), transform var(--transition), box-shadow var(--transition);
+  z-index: 3;
 }
-.game-card:hover .add { opacity: 1; transform: translateY(0); }
+.game-card .card-action.add {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  box-shadow: var(--shadow-neon-blue);
+}
+.game-card .card-action.remove {
+  background: linear-gradient(135deg, #ef4444, #b91c1c);
+  box-shadow: 0 0 18px rgba(239,68,68,.55);
+}
+.game-card:hover .card-action { opacity: 1; transform: translateY(0); }
 .game-card.in-list { border-color: var(--accent); box-shadow: 0 0 20px rgba(255,43,214,.4); }
 
 @keyframes fadeUp { from { opacity: 0; transform: translateY(10px);} to {opacity:1; transform:none;} }
 
-/* -------- Mobile: força 3 por linha -------- */
+/* -------- Barra de alternância Grade / Lista -------- */
+.view-toggle-bar {
+  margin: 0 16px;
+  display: flex; justify-content: flex-end;
+}
+.view-toggle {
+  display: inline-flex;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 4px;
+  gap: 4px;
+  backdrop-filter: blur(10px);
+}
+.vt-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 9px;
+  color: var(--text-muted); font-weight: 600; font-size: 13px;
+  transition: background var(--transition), color var(--transition);
+}
+.vt-btn:hover { color: var(--text); }
+.vt-btn.active {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; box-shadow: var(--shadow-neon-blue);
+}
+
+/* -------- Modo Lista -------- */
+.games-grid.list {
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.games-grid.list .game-card {
+  display: grid;
+  grid-template-columns: 72px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 8px;
+}
+.games-grid.list .game-card .thumb {
+  width: 72px; height: 72px; aspect-ratio: auto;
+  border-radius: 10px; overflow: hidden;
+}
+.games-grid.list .game-card .info { padding: 0; min-width: 0; }
+.games-grid.list .game-card .info h3 {
+  font-size: 15px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.games-grid.list .game-card .meta { gap: 12px; justify-content: flex-start; }
+.games-grid.list .game-card .card-action {
+  position: static; opacity: 1; transform: none;
+  align-self: center;
+}
+.games-grid.list .game-card:hover { transform: none; }
+
+/* -------- Mobile: força 3 por linha (grade) e ajustes -------- */
 @media (max-width: 720px) {
   .games-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
   .game-card .info h3 { font-size: 12px; }
   .game-card .meta { font-size: 10px; }
   .filters { grid-template-columns: 1fr 1fr; }
   .pendrive-bar { grid-template-columns: 1fr; }
+  /* No mobile: esconde o <select> e mostra os botões de capacidade */
+  #pendriveSelect { display: none; }
+  .pendrive-buttons { display: flex; }
   .header-inner { padding: 10px 14px; }
   .brand-title { font-size: .95rem; }
+
+  /* Botão de ação do card sempre visível no celular */
+  .game-card .card-action {
+    opacity: 1;
+    transform: none;
+    width: 30px; height: 30px;
+    top: 6px; right: 6px;
+    font-size: 13px;
+  }
+
+  /* Ajustes do modo Lista no mobile */
+  .games-grid.list { grid-template-columns: 1fr; }
+  .games-grid.list .game-card { grid-template-columns: 60px 1fr auto; gap: 10px; }
+  .games-grid.list .game-card .thumb { width: 60px; height: 60px; }
+  .games-grid.list .game-card .info h3 { font-size: 14px; }
+  .games-grid.list .game-card .meta { font-size: 12px; }
+  .games-grid.list .game-card .card-action { width: 38px; height: 38px; }
 }
 
 /* -------- Pagination -------- */
@@ -292,6 +401,12 @@ input, select, textarea { font-family: inherit; }
   padding: 24px;
   animation: popIn .25s cubic-bezier(.2,.9,.3,1.2);
 }
+/* Modais com 90% de opacidade (fundo sólido) para melhor legibilidade */
+.modal-content.glass {
+  background: rgba(11, 13, 26, 0.92);
+  backdrop-filter: blur(18px) saturate(160%);
+  -webkit-backdrop-filter: blur(18px) saturate(160%);
+}
 .modal-content.wide { max-width: 860px; }
 .modal-content.narrow { max-width: 400px; }
 @keyframes popIn { from { opacity:0; transform: scale(.94);} to {opacity:1; transform:none;} }
@@ -333,6 +448,31 @@ input, select, textarea { font-family: inherit; }
 .cart-summary { padding: 10px; text-align: center; color: var(--text-muted); }
 .warn { color: #ffb4b4; margin-top: 6px; }
 
+/* Aviso vermelho sobre jogos não-oficiais / patches */
+.warn-official {
+  margin: 4px 0 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.55);
+  color: #fecaca;
+  box-shadow: inset 0 0 0 1px rgba(239, 68, 68, 0.15);
+}
+.warn-official .warn-official-title {
+  color: #ff6b6b;
+  font-weight: 800;
+  font-size: 14px;
+  letter-spacing: .02em;
+  margin-bottom: 6px;
+  display: flex; align-items: center; gap: 8px;
+}
+.warn-official p {
+  color: #fecaca;
+  font-size: 13px;
+  line-height: 1.45;
+  margin: 0;
+}
+
 /* -------- Forms -------- */
 .checkout-form { display: flex; flex-direction: column; gap: 12px; margin-top: 10px; }
 .checkout-form h3 { font-family: var(--font-display); font-size: 14px; color: var(--text-muted); letter-spacing: .1em; }
@@ -362,7 +502,9 @@ input, select, textarea { font-family: inherit; }
   display: grid;
   grid-template-columns: 260px 1fr;
   min-height: 100vh;
+  min-height: 100dvh;
   gap: 12px; padding: 12px;
+  background-color: var(--bg-1); /* garante fundo escuro contínuo */
 }
 .admin-sidebar { padding: 20px; display: flex; flex-direction: column; gap: 16px; }
 .admin-sidebar .brand.small h2 { font-family: var(--font-display); font-size: 1.1rem; }
@@ -448,14 +590,271 @@ table.admin-table {
 }
 @keyframes shine { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
-/* Admin mobile */
+.whatsapp-float {
+    position: fixed;
+    width: 60px;
+    height: 60px;
+    bottom: 40px;
+    right: 40px;
+    background-color: #25d366;
+    color: #FFF;
+    border-radius: 50px;
+    text-align: center;
+    font-size: 30px;
+    box-shadow: 2px 2px 10px rgba(0,0,0,0.3);
+    z-index: 1000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition: transform 0.3s ease;
+}
+
+.whatsapp-float img {
+    width: 70%;
+    height: 70%;
+}
+
+.whatsapp-float:hover {
+    transform: scale(1.1);
+    background-color: #128c7e;
+}
+
+/* Ajuste para celular */
+@media (max-width: 480px) {
+    .whatsapp-float {
+        width: 50px;
+        height: 50px;
+        bottom: 20px;
+        right: 20px;
+    }
+}
+
+/* Admin mobile — corrige "margens brancas" e mantém fundo uniforme */
 @media (max-width: 860px) {
-  .admin-app { grid-template-columns: 1fr; }
+  html, body { background-attachment: scroll; } /* iOS ignora fixed → usa scroll */
+  .admin-app {
+    grid-template-columns: 1fr;
+    padding: 8px;
+    gap: 8px;
+    min-height: 100vh;
+    min-height: 100dvh;
+    width: 100%;
+  }
   .admin-sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; width: 260px; z-index: 200;
     transform: translateX(-110%); transition: transform .3s ease;
     border-radius: 0; margin: 0;
+    background: rgba(11, 13, 26, 0.96); /* opaco para não vazar conteúdo */
   }
   .admin-sidebar.open { transform: translateX(0); }
   #mobileMenuBtn { display: inline-grid; }
+
+  /* Evita "cinturas" brancas quando o conteúdo é maior que a viewport */
+  .admin-main { min-height: calc(100dvh - 16px); }
+  .admin-topbar { padding: 10px 14px; }
+  .view-container { padding: 4px 2px 32px; }
 }
+
+/* Barra do toggle em telas pequenas */
+@media (max-width: 720px) {
+  .view-toggle-bar { margin: 0 16px; justify-content: center; }
+  .vt-btn { padding: 8px 12px; font-size: 12px; }
+}
+
+
+/* =========================================================
+   ATUALIZAÇÕES DE LAYOUT — v2
+   • Botão de área restrita quase imperceptível
+   • Botão flutuante "Finalizar lista e enviar"
+   • Área administrativa em modal com abas horizontais
+   • Ajustes finos de responsividade
+   ========================================================= */
+
+/* -------- Botão de acesso restrito (discreto) -------- */
+.admin-access {
+  width: 22px; height: 22px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  opacity: .18;
+  transition: opacity .3s ease;
+}
+.admin-access:hover, .admin-access:focus-visible { opacity: .45; }
+.admin-access .admin-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--text-muted);
+  display: block;
+}
+
+/* -------- Botão flutuante: finalizar lista -------- */
+.float-finish {
+  position: fixed;
+  z-index: 90;
+  left: 50%;
+  bottom: 26px;
+  transform: translateX(-50%);
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 14px 22px;
+  border-radius: 999px;
+  font-weight: 700; font-size: 15px; letter-spacing: .02em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  box-shadow: 0 10px 30px rgba(0,0,0,.45), var(--shadow-neon-blue);
+  animation: floatIn .3s ease both;
+  max-width: calc(100vw - 130px);
+}
+.float-finish:hover { transform: translateX(-50%) translateY(-2px); }
+.float-finish.hidden { display: none !important; }
+.float-finish .float-count {
+  background: rgba(0,0,0,.28);
+  padding: 2px 10px; border-radius: 999px;
+  font-size: 13px;
+}
+@keyframes floatIn { from { opacity: 0; transform: translateX(-50%) translateY(14px); } to { opacity: 1; } }
+
+/* Evita que o botão flutuante cubra o final do catálogo */
+body.has-float-finish .site-footer { margin-bottom: 96px; }
+
+/* Toast acima do botão flutuante */
+body.has-float-finish .toast { bottom: 96px; }
+
+/* -------- Área administrativa em modal -------- */
+.admin-modal { padding: 12px; align-items: stretch; }
+.admin-modal-content {
+  max-width: 1180px;
+  width: 100%;
+  max-height: calc(100dvh - 24px);
+  display: flex; flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+.admin-modal-header {
+  position: relative;
+  padding: 14px 56px 0 18px;
+  border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+  flex-shrink: 0;
+}
+.admin-modal-title {
+  display: flex; align-items: center; gap: 10px; min-width: 0;
+  margin-bottom: 10px;
+}
+.admin-modal-title h2 {
+  font-family: var(--font-display);
+  font-size: 1.05rem; letter-spacing: .06em;
+  margin: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.admin-modal-title .user-chip { margin-left: auto; flex-shrink: 0; }
+.admin-modal .modal-close { top: 12px; right: 12px; }
+
+/* Barra horizontal de menus */
+.admin-tabs {
+  display: flex; gap: 6px;
+  overflow-x: auto; overflow-y: hidden;
+  padding-bottom: 10px;
+  scrollbar-width: thin;
+  -webkit-overflow-scrolling: touch;
+}
+.admin-tabs::-webkit-scrollbar { height: 5px; }
+.admin-tabs::-webkit-scrollbar-thumb { background: rgba(255,255,255,.15); border-radius: 999px; }
+.admin-tabs .nav-item {
+  flex: 0 0 auto;
+  white-space: nowrap;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-size: 13px; font-weight: 600;
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,.03);
+}
+.admin-tabs .nav-item.active {
+  background: linear-gradient(135deg, var(--primary), var(--secondary));
+  color: #fff; border-color: transparent;
+  box-shadow: 0 0 14px rgba(0,179,255,.35);
+}
+.admin-tabs .nav-item.danger { color: #ffb4b4; margin-left: auto; }
+
+.admin-modal .view-container {
+  padding: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  flex: 1 1 auto;
+  gap: 14px;
+}
+body.modal-open { overflow: hidden; }
+
+/* -------- Correções de layout gerais -------- */
+.warn-official { margin: 14px 16px; }
+.catalog-wrapper { padding-top: 14px; }
+.header-inner { gap: 12px; }
+.brand { min-width: 0; }
+.brand-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.header-actions { flex-shrink: 0; }
+.cart-items { max-height: min(46vh, 380px); }
+.modal-content { max-height: calc(100dvh - 32px); }
+.select-neon { max-width: 100%; }
+.pendrive-stats { row-gap: 6px; }
+.pagination { flex-wrap: wrap; }
+img { max-width: 100%; }
+.admin-table td input { max-width: 100%; }
+
+/* -------- Responsivo -------- */
+@media (max-width: 860px) {
+  .admin-modal { padding: 0; }
+  .admin-modal-content {
+    max-width: 100%;
+    max-height: 100dvh;
+    height: 100dvh;
+    border-radius: 0;
+  }
+  .admin-modal-header { padding: 12px 50px 0 12px; }
+  .admin-modal .view-container { padding: 12px 12px 28px; }
+  .panel { padding: 14px; }
+  .panel-head { flex-direction: column; align-items: stretch; }
+  .panel-head > div, .panel-head input, .panel-head .btn { width: 100%; }
+  .panel-head input { max-width: none !important; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stat-card { padding: 14px; }
+  .stat-card .value { font-size: 1.4rem; }
+  .admin-table { font-size: 13px; }
+  .admin-table th, .admin-table td { padding: 8px; white-space: nowrap; }
+}
+
+@media (max-width: 720px) {
+  .site-header { margin: 8px 10px 0; top: 8px; }
+  .pendrive-bar, .filters, .warn-official, .site-footer { margin-left: 10px; margin-right: 10px; }
+  .catalog-wrapper { padding-left: 10px; padding-right: 10px; }
+  .view-toggle-bar { margin: 0 10px; }
+  .filters { grid-template-columns: 1fr 1fr; gap: 8px; }
+  .filter-item.search { grid-column: 1 / -1; }
+  .modal { padding: 10px; }
+  .modal-content { padding: 18px 14px; }
+  .cart-item { grid-template-columns: 40px 1fr auto; row-gap: 6px; }
+  .cart-item .rm { grid-column: 3; }
+  .float-finish {
+    left: 12px; right: 84px;
+    transform: none;
+    max-width: none;
+    justify-content: center;
+    padding: 13px 16px;
+    font-size: 14px;
+  }
+  .float-finish:hover { transform: translateY(-2px); }
+  @keyframes floatIn { from { opacity: 0; } to { opacity: 1; } }
+  .whatsapp-float { bottom: 22px; right: 16px; }
+  body.has-float-finish .toast { bottom: 92px; }
+  .admin-tabs .nav-item { padding: 8px 12px; font-size: 12px; }
+  .admin-tabs .nav-item.danger { margin-left: 0; }
+}
+
+@media (max-width: 420px) {
+  .games-grid { grid-template-columns: repeat(2, 1fr); }
+  .brand-title { font-size: .85rem; }
+  .stats { grid-template-columns: 1fr; }
+  .float-finish span:not(.float-count) { font-size: 13px; }
+}
+
+/* Esconde botões flutuantes enquanto o painel administrativo está aberto */
+body.modal-open .whatsapp-float,
+body.modal-open .float-finish { display: none !important; }
